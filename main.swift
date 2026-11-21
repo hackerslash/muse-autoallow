@@ -62,6 +62,7 @@ enum Status { case active, paused, noAccess, museOff }
     }.map(\.key)) {
         didSet { for c in categories { UserDefaults.standard.set(enabled.contains(c.key), forKey: "allow." + c.key) } }
     }
+    @Published var showTypes = false
     @Published var session = 0
     @Published var total = UserDefaults.standard.integer(forKey: "total")
     @Published var recent: [Upload] = {
@@ -302,12 +303,30 @@ struct Panel: View {
 
                 VStack(spacing: 10) {
                     row("Pause auto-allow", $m.paused)
-                    ForEach(categories, id: \.key) { c in
-                        row(c.label, Binding(get: { m.enabled.contains(c.key) },
-                                             set: { if $0 { m.enabled.insert(c.key) } else { m.enabled.remove(c.key) } }))
+                    Button {
+                        withAnimation(.snappy) { m.showTypes.toggle() }
+                    } label: {
+                        HStack {
+                            Text("Auto-allow").font(.callout)
+                            Spacer()
+                            Text("\(m.enabled.count) of \(categories.count) on").font(.caption).foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .rotationEffect(.degrees(m.showTypes ? 90 : 0))
+                        }
+                        .contentShape(.rect)
                     }
-                    Text("Purchases, checkout and sign-ins always ask.")
-                        .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(.plain)
+                    if m.showTypes {
+                        VStack(spacing: 10) {
+                            ForEach(categories, id: \.key) { c in
+                                row(c.label, Binding(get: { m.enabled.contains(c.key) },
+                                                     set: { if $0 { m.enabled.insert(c.key) } else { m.enabled.remove(c.key) } }))
+                            }
+                            Text("Purchases, checkout and sign-ins always ask.")
+                                .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.leading, 12)
+                    }
                     row("Launch at login", Binding(get: { m.launchAtLogin }, set: { m.setLaunchAtLogin($0) }))
                 }
                 .padding(12)
