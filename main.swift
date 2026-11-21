@@ -9,6 +9,22 @@ struct Upload: Identifiable, Codable {
     let date: Date
     let file: String
     let site: String
+    var kind: String? = "upload"
+}
+
+struct PromptKind {
+    let key: String
+    let title: String
+    let marker: String
+    let button: String
+    let parse: (String) -> (file: String, site: String)?
+}
+
+let uploadPrompt = PromptKind(key: "upload", title: "to upload this file", marker: "uploads to this site", button: "Allow once") { t in
+    t.contains("wants to upload") ? parseUpload(t) : nil
+}
+let sensitivePrompt = PromptKind(key: "site", title: "to access", marker: "access this sensitive site", button: "Allow") { t in
+    parseSiteAccess(t).map { ("sensitive site access", $0) }
 }
 
 enum Status { case active, paused, noAccess, museOff }
@@ -18,6 +34,9 @@ enum Status { case active, paused, noAccess, museOff }
     @Published var museRunning = false
     @Published var paused = UserDefaults.standard.bool(forKey: "paused") {
         didSet { UserDefaults.standard.set(paused, forKey: "paused") }
+    }
+    @Published var allowSensitive = UserDefaults.standard.bool(forKey: "allowSensitive") {
+        didSet { UserDefaults.standard.set(allowSensitive, forKey: "allowSensitive") }
     }
     @Published var session = 0
     @Published var total = UserDefaults.standard.integer(forKey: "total")
@@ -49,8 +68,9 @@ enum Status { case active, paused, noAccess, museOff }
         guard let pid = app?.processIdentifier, trusted, !paused, !scanning,
               Date().timeIntervalSince(lastClick) > 2 else { return }
         scanning = true
+        let kinds = allowSensitive ? [uploadPrompt, sensitivePrompt] : [uploadPrompt]
         DispatchQueue.global(qos: .utility).async {
-            let hit = scanAndAllow(pid)
+            let hit = scanAndAllow(pid, kinds)
             DispatchQueue.main.async {
                 self.scanning = false
                 if let hit { self.record(hit) }
@@ -90,7 +110,23 @@ func parseUpload(_ detail: String) -> (file: String, site: String)? {
     return (String(m.1), String(m.2))
 }
 
-nonisolated func scanAndAllow(_ pid: pid_t) -> Upload? {
+// ponytail: debug log for prompts whose site/file couldn't be read; drop once parsing is solid.
+func logUnparsed(_ kind: String, _ text: [String]) {
+    let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/MuseAutoAllow.log")
+    let line = "\(Date()) [\(kind)] " + text.map { $0.replacingOccurrences(of: "\n", with: " ") }.joined(separator: " | ") + "\n"
+    if let h = try? FileHandle(forWritingTo: url) {
+        h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close()
+    } else {
+        try? line.write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+
+func parseSiteAccess(_ title: String) -> String? {
+    guard let m = try? Regex(#"to access (\S+?)\?"#, as: (Substring, Substring).self).firstMatch(in: title) else { return nil }
+    return String(m.1)
+}
+
+nonisolated func scanAndAllow(_ pid: pid_t, _ kinds: [PromptKind]) -> Upload? {
     let app = AXUIElementCreateApplication(pid)
     AXUIElementSetMessagingTimeout(app, 1)
     for window in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
@@ -109,23 +145,26 @@ nonisolated func scanAndAllow(_ pid: pid_t) -> Upload? {
         func subtreeText(_ root: Int) -> [String] {
             nodes.indices.filter { ancestors($0).contains(root) }.flatMap { nodes[$0].text }
         }
-        let allows = nodes.indices.filter {
-            nodes[$0].text.contains("Allow once") && (attr(nodes[$0].el, kAXRoleAttribute) as? String) == kAXButtonRole
-        }
-        let titles = nodes.indices.filter { nodes[$0].text.contains { $0.contains("to upload this file") } }
-        for t in titles {
-            let up = ancestors(t)
-            for a in allows {
-                // The card is the smallest container holding both the upload title and this button.
-                let mine = Set(ancestors(a))
-                guard let card = up.first(where: mine.contains) else { continue }
-                // Another Allow once inside it could belong to a different request: don't guess.
-                guard allows.filter({ ancestors($0).contains(card) }).count == 1 else { continue }
-                let text = subtreeText(card)
-                guard text.contains(where: { $0.contains("uploads to this site") }) else { continue }
-                guard AXUIElementPerformAction(nodes[a].el, kAXPressAction as CFString) == .success else { return nil }
-                let parsed = text.lazy.filter { $0.contains("wants to upload") }.compactMap(parseUpload).first
-                return Upload(date: Date(), file: parsed?.file ?? "file", site: parsed?.site ?? "unknown site")
+        for kind in kinds {
+            let buttons = nodes.indices.filter {
+                nodes[$0].text.contains(kind.button) && (attr(nodes[$0].el, kAXRoleAttribute) as? String) == kAXButtonRole
+            }
+            let titles = nodes.indices.filter { nodes[$0].text.contains { $0.contains(kind.title) } }
+            for t in titles {
+                let up = ancestors(t)
+                for a in buttons {
+                    // The card is the smallest container holding both the prompt title and this button.
+                    let mine = Set(ancestors(a))
+                    guard let card = up.first(where: mine.contains) else { continue }
+                    // Another matching button inside it could belong to a different request: don't guess.
+                    guard buttons.filter({ ancestors($0).contains(card) }).count == 1 else { continue }
+                    let text = subtreeText(card)
+                    guard text.contains(where: { $0.contains(kind.marker) }) else { continue }
+                    guard AXUIElementPerformAction(nodes[a].el, kAXPressAction as CFString) == .success else { return nil }
+                    let parsed = text.lazy.compactMap(kind.parse).first
+                    if parsed == nil { logUnparsed(kind.key, text) }
+                    return Upload(date: Date(), file: parsed?.file ?? "file", site: parsed?.site ?? "unknown site", kind: kind.key)
+                }
             }
         }
     }
@@ -211,7 +250,7 @@ struct Panel: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Recent uploads").font(.caption).foregroundStyle(.secondary)
+                    Text("Recent approvals").font(.caption).foregroundStyle(.secondary)
                     if m.recent.isEmpty {
                         Text("Nothing allowed yet").font(.callout).foregroundStyle(.tertiary)
                     }
@@ -219,10 +258,10 @@ struct Panel: View {
                         HStack(alignment: .firstTextBaseline) {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(u.site).font(.callout.weight(.medium)).lineLimit(1)
-                                Text(u.file).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                Text(u.file).font(.caption).foregroundStyle(u.kind == "site" ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary)).lineLimit(1)
                             }
                             Spacer()
-                            Text(u.date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
+                            Text(u.date, style: .time)
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -233,13 +272,14 @@ struct Panel: View {
 
                 VStack(spacing: 10) {
                     row("Pause auto-allow", $m.paused)
+                    row("Also allow sensitive sites", $m.allowSensitive)
                     row("Launch at login", Binding(get: { m.launchAtLogin }, set: { m.setLaunchAtLogin($0) }))
                 }
                 .padding(12)
                 .glassEffect(.regular, in: .rect(cornerRadius: 14))
 
                 HStack {
-                    Text("Only upload prompts are approved.").font(.caption2).foregroundStyle(.tertiary)
+                    Text(m.allowSensitive ? "Uploads and sensitive sites." : "Only upload prompts are approved.").font(.caption2).foregroundStyle(.tertiary)
                     Spacer()
                     Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.glass).controlSize(.small)
                 }
