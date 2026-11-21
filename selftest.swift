@@ -11,6 +11,8 @@
         precondition(parseUpload("Vondu wants to upload mdafridisk_backend.pdf to Rubrik to apply for the Software Engineer - Cloud Native Protection role in Bangalore, India (job 8327940). This task comes from the side chat “x”. See details")?.site == "Rubrik")
         let lq = parseUpload("Vondu wants to upload mdafridisk_backend.pdf to the Liquidity Services careers site to apply for the Engineer II, Software Dev. role in Chennai, India. This task comes from the side chat “x”. See details")
         precondition(lq?.file == "mdafridisk_backend.pdf" && lq?.site == "Liquidity Services careers site")
+        precondition(parseUpload("Vondu wants to upload a file to careers.kula.ai. This task comes from the side chat “x”. See details")?.site == "careers.kula.ai")
+        precondition(parseUpload("Vondu wants to upload a file to Rippling ATS. This task comes from the side chat “x”. See details")?.site == "Rippling ATS")
         precondition(parseSiteAccess("Allow Vondu to access truist.com?") == "truist.com")
         precondition(parseSiteAccess("Allow this browser task to access this sensitive site, on the web") == nil)
         print("selftest ok")

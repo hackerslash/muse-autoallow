@@ -20,7 +20,7 @@ struct PromptKind {
     let parse: (String) -> (file: String, site: String)?
 }
 
-let uploadPrompt = PromptKind(key: "upload", title: "to upload this file", marker: "uploads to this site", button: "Allow once") { t in
+let uploadPrompt = PromptKind(key: "upload", title: "to upload this file", marker: "wants to upload", button: "Allow once") { t in
     t.contains("wants to upload") ? parseUpload(t) : nil
 }
 let sensitivePrompt = PromptKind(key: "site", title: "to access", marker: "access this sensitive site", button: "Allow") { t in
@@ -105,7 +105,7 @@ private func strings(_ e: AXUIElement) -> [String] {
 }
 
 func parseUpload(_ detail: String) -> (file: String, site: String)? {
-    guard let m = try? Regex(#"upload (.+?\.\w+) to (.+?)(?:\. This task|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
+    guard let m = try? Regex(#"upload (.+?\.\w+|a file) to (.+?)(?:\. This task|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
     else { return nil }
     let rest = String(m.2)
     if let d = try? Regex(#"([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})\b"#, as: (Substring, Substring).self).firstMatch(in: rest) {
