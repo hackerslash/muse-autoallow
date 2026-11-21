@@ -105,9 +105,15 @@ private func strings(_ e: AXUIElement) -> [String] {
 }
 
 func parseUpload(_ detail: String) -> (file: String, site: String)? {
-    guard let m = try? Regex(#"upload (.+?) to ([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
+    guard let m = try? Regex(#"upload (.+?\.\w+) to (.+?)(?:\. This task|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
     else { return nil }
-    return (String(m.1), String(m.2))
+    let rest = String(m.2)
+    if let d = try? Regex(#"([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})\b"#, as: (Substring, Substring).self).firstMatch(in: rest) {
+        return (String(m.1), String(d.1))
+    }
+    // No domain in the text: the agent named the site, e.g. "to Rubrik to apply…".
+    let name = rest.components(separatedBy: " to apply").first!.components(separatedBy: " for ").first!
+    return (String(m.1), name.hasPrefix("the ") ? String(name.dropFirst(4)) : name)
 }
 
 // ponytail: debug log for prompts whose site/file couldn't be read; drop once parsing is solid.
