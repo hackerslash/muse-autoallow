@@ -2,7 +2,7 @@
 
 <h1 align="center">MuseAutoAllow</h1>
 
-<p align="center">Menu-bar app for macOS that auto-approves Muse's <b>"Allow … to upload this file?"</b> prompts, so browser automations don't stall on every new site.</p>
+<p align="center">Menu-bar app for macOS that auto-approves Muse's approval prompts (file uploads by default), so agent tasks don't stall waiting for you.</p>
 
 <p align="center">
   <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/hackerslash/muse-autoallow" alt="release"></a>
@@ -10,8 +10,9 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
 </p>
 
-- Presses **Allow once** only on upload prompts. Every other approval still asks you.
-- Optional switch to also approve Muse's "access this sensitive site" prompts (off by default).
+- One switch per prompt type: **file uploads** (on by default), **web access and sharing**, **form submits and clicks**, **app actions** (email, Slack…).
+- Always presses the narrowest option (Allow once / Allow for this task), never "Always allow".
+- Purchases, checkout, bookings, payments, sign-ins and credential warnings always ask you.
 - Works with any agent name; needs Muse's UI in English.
 - Status badge in the menu bar: ✓ active, ‖ paused, ! needs Accessibility, ○ Muse not running.
 - Liquid Glass panel with session and all-time counts, recent uploads, pause and launch at login.
@@ -24,7 +25,7 @@
 3. Allow **MuseAutoAllow** in System Settings → Privacy & Security → Accessibility.
 
 > [!WARNING]
-> While it runs, the Muse agent can upload files to any site without asking. Pause it when you're not watching a task you trust.
+> While it runs, the Muse agent can do everything you've switched on (by default, upload files to any site) without asking. Pause it when you're not watching a task you trust.
 
 ## Build
 

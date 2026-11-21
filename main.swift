@@ -12,19 +12,40 @@ struct Upload: Identifiable, Codable {
     var kind: String? = "upload"
 }
 
-struct PromptKind {
+// Card titles are Muse's permission questions, e.g. "Allow Vondu to share information with api.notion.com?".
+struct Category {
     let key: String
-    let title: String
-    let marker: String
-    let button: String
-    let parse: (String) -> (file: String, site: String)?
+    let label: String
+    let defaultOn: Bool
+    let pattern: String
 }
 
-let uploadPrompt = PromptKind(key: "upload", title: "to upload this file", marker: "wants to upload", button: "Allow once") { t in
-    t.contains("wants to upload") ? parseUpload(t) : nil
+let categories = [
+    Category(key: "upload", label: "File uploads", defaultOn: true, pattern: #"to upload this file"#),
+    Category(key: "web", label: "Web access and sharing", defaultOn: false,
+             pattern: #"to access |to share information with |to read the web|read content from the web|research|web access"#),
+    Category(key: "browser", label: "Form submits and clicks", defaultOn: false, pattern: #"to submit this form|to select “"#),
+    Category(key: "connector", label: "App actions (email, Slack…)", defaultOn: false, pattern: #" in [^?]+\?$| to use "#),
+]
+
+// Money, bookings and sign-ins always ask, whatever the toggles say.
+let neverPattern = #"(?i)purchase|check ?out|spend|order|pay|book|buy|subscri|donat|transfer|card|sign in|password"#
+
+// Primary allow labels Muse renders; "Always allow…" and bulk "Allow all…" choices are never pressed.
+let allowLabels: Set<String> = ["Allow once", "Allow", "Allow for this task", "Allow for this scheduled task",
+                                "Allow for this artifact", "Allow for this space", "Allow for this idea",
+                                "Allow for your Feed", "Allow all web access for this task"]
+
+func isPrompt(_ title: String) -> Bool { title.hasPrefix("Allow ") && title.hasSuffix("?") }
+
+func classify(_ title: String) -> String? {
+    guard isPrompt(title), title.firstMatch(of: try! Regex(neverPattern)) == nil else { return nil }
+    return categories.first { title.firstMatch(of: try! Regex($0.pattern)) != nil }?.key
 }
-let sensitivePrompt = PromptKind(key: "site", title: "to access", marker: "access this sensitive site", button: "Allow") { t in
-    parseSiteAccess(t).map { ("sensitive site access", $0) }
+
+func promptAction(_ title: String) -> String {
+    if let m = title.firstMatch(of: try! Regex(#"^Allow .+? to (.+)\?$"#, as: (Substring, Substring).self)) { return String(m.1) }
+    return String(title.dropFirst(6).dropLast())
 }
 
 enum Status { case active, paused, noAccess, museOff }
@@ -35,8 +56,11 @@ enum Status { case active, paused, noAccess, museOff }
     @Published var paused = UserDefaults.standard.bool(forKey: "paused") {
         didSet { UserDefaults.standard.set(paused, forKey: "paused") }
     }
-    @Published var allowSensitive = UserDefaults.standard.bool(forKey: "allowSensitive") {
-        didSet { UserDefaults.standard.set(allowSensitive, forKey: "allowSensitive") }
+    @Published var enabled: Set<String> = Set(categories.filter { c in
+        UserDefaults.standard.object(forKey: "allow." + c.key) as? Bool
+            ?? (c.key == "web" ? UserDefaults.standard.bool(forKey: "allowSensitive") : c.defaultOn)
+    }.map(\.key)) {
+        didSet { for c in categories { UserDefaults.standard.set(enabled.contains(c.key), forKey: "allow." + c.key) } }
     }
     @Published var session = 0
     @Published var total = UserDefaults.standard.integer(forKey: "total")
@@ -68,9 +92,9 @@ enum Status { case active, paused, noAccess, museOff }
         guard let pid = app?.processIdentifier, trusted, !paused, !scanning,
               Date().timeIntervalSince(lastClick) > 2 else { return }
         scanning = true
-        let kinds = allowSensitive ? [uploadPrompt, sensitivePrompt] : [uploadPrompt]
+        let enabled = enabled
         DispatchQueue.global(qos: .utility).async {
-            let hit = scanAndAllow(pid, kinds)
+            let hit = scanAndAllow(pid, enabled)
             DispatchQueue.main.async {
                 self.scanning = false
                 if let hit { self.record(hit) }
@@ -127,12 +151,7 @@ func logUnparsed(_ kind: String, _ text: [String]) {
     }
 }
 
-func parseSiteAccess(_ title: String) -> String? {
-    guard let m = try? Regex(#"to access (\S+?)\?"#, as: (Substring, Substring).self).firstMatch(in: title) else { return nil }
-    return String(m.1)
-}
-
-nonisolated func scanAndAllow(_ pid: pid_t, _ kinds: [PromptKind]) -> Upload? {
+nonisolated func scanAndAllow(_ pid: pid_t, _ enabled: Set<String>) -> Upload? {
     let app = AXUIElementCreateApplication(pid)
     AXUIElementSetMessagingTimeout(app, 1)
     for window in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
@@ -151,26 +170,31 @@ nonisolated func scanAndAllow(_ pid: pid_t, _ kinds: [PromptKind]) -> Upload? {
         func subtreeText(_ root: Int) -> [String] {
             nodes.indices.filter { ancestors($0).contains(root) }.flatMap { nodes[$0].text }
         }
-        for kind in kinds {
-            let buttons = nodes.indices.filter {
-                nodes[$0].text.contains(kind.button) && (attr(nodes[$0].el, kAXRoleAttribute) as? String) == kAXButtonRole
-            }
-            let titles = nodes.indices.filter { nodes[$0].text.contains { $0.hasPrefix("Allow ") && $0.contains(kind.title) } }
-            for t in titles {
-                let up = ancestors(t)
-                for a in buttons {
-                    // The card is the smallest container holding both the prompt title and this button.
-                    let mine = Set(ancestors(a))
-                    guard let card = up.first(where: mine.contains) else { continue }
-                    // Another matching button inside it could belong to a different request: don't guess.
-                    guard buttons.filter({ ancestors($0).contains(card) }).count == 1 else { continue }
-                    let text = subtreeText(card)
-                    guard text.contains(where: { $0.contains(kind.marker) }) else { continue }
-                    guard AXUIElementPerformAction(nodes[a].el, kAXPressAction as CFString) == .success else { return nil }
-                    let parsed = text.lazy.compactMap(kind.parse).first
-                    if parsed == nil { logUnparsed(kind.key, text) }
-                    return Upload(date: Date(), file: parsed?.file ?? "file", site: parsed?.site ?? "unknown site", kind: kind.key)
+        func isButton(_ n: Int) -> Bool { (attr(nodes[n].el, kAXRoleAttribute) as? String) == kAXButtonRole }
+        let allows = nodes.indices.filter { !allowLabels.isDisjoint(with: nodes[$0].text) && isButton($0) }
+        if allows.isEmpty { continue }
+        let denies = nodes.indices.filter { nodes[$0].text.contains { $0.hasPrefix("Deny") } && isButton($0) }
+        for t in nodes.indices {
+            guard let title = nodes[t].text.first(where: { classify($0).map(enabled.contains) == true }) else { continue }
+            let up = ancestors(t)
+            for a in allows {
+                // The card is the smallest container holding both the prompt title and this button.
+                let mine = Set(ancestors(a))
+                guard let card = up.first(where: mine.contains) else { continue }
+                // Another allow button inside it could belong to a different request: don't guess.
+                guard allows.filter({ ancestors($0).contains(card) }).count == 1,
+                      denies.contains(where: { ancestors($0).contains(card) }) else { continue }
+                let text = subtreeText(card)
+                // A stray title (e.g. quoted in chat) can pair with another request's card: every prompt in it must be allowed.
+                guard text.filter(isPrompt).allSatisfy({ classify($0).map(enabled.contains) == true }) else { continue }
+                guard AXUIElementPerformAction(nodes[a].el, kAXPressAction as CFString) == .success else { return nil }
+                let key = classify(title)!
+                if key != "upload" {
+                    return Upload(date: Date(), file: categories.first { $0.key == key }!.label, site: promptAction(title), kind: key)
                 }
+                let parsed = text.lazy.filter { $0.contains("wants to upload") }.compactMap(parseUpload).first
+                if parsed == nil { logUnparsed(key, text) }
+                return Upload(date: Date(), file: parsed?.file ?? "file", site: parsed?.site ?? "unknown site", kind: key)
             }
         }
     }
@@ -264,7 +288,7 @@ struct Panel: View {
                         HStack(alignment: .firstTextBaseline) {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(u.site).font(.callout.weight(.medium)).lineLimit(1)
-                                Text(u.file).font(.caption).foregroundStyle(u.kind == "site" ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary)).lineLimit(1)
+                                Text(u.file).font(.caption).foregroundStyle((u.kind ?? "upload") != "upload" ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary)).lineLimit(1)
                             }
                             Spacer()
                             Text(u.date, style: .time)
@@ -278,7 +302,12 @@ struct Panel: View {
 
                 VStack(spacing: 10) {
                     row("Pause auto-allow", $m.paused)
-                    row("Also allow sensitive sites", $m.allowSensitive)
+                    ForEach(categories, id: \.key) { c in
+                        row(c.label, Binding(get: { m.enabled.contains(c.key) },
+                                             set: { if $0 { m.enabled.insert(c.key) } else { m.enabled.remove(c.key) } }))
+                    }
+                    Text("Purchases, checkout and sign-ins always ask.")
+                        .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                     row("Launch at login", Binding(get: { m.launchAtLogin }, set: { m.setLaunchAtLogin($0) }))
                 }
                 .padding(12)
