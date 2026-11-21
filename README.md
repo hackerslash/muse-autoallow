@@ -8,7 +8,12 @@ forms on many different sites (job applications, etc.) keep stopping for approva
 removes that one prompt and leaves every other approval (computer use, connectors, files)
 untouched.
 
-The menu bar shows `M✓ <n>`, where `n` is the number of prompts clicked since launch.
+A small `m` glyph sits in the menu bar; its badge shows the state (✓ active, ‖ paused,
+! needs Accessibility, ○ Muse not running). Click it for a Liquid Glass panel with
+session/all-time counts, the recent uploads it approved (site + file), a pause switch,
+and launch at login.
+
+Requires macOS 26 or later.
 
 > Not affiliated with or endorsed by Meta or the Muse app.
 
@@ -20,11 +25,10 @@ The menu bar shows `M✓ <n>`, where `n` is the number of prompts clicked since 
    ```sh
    xattr -dr com.apple.quarantine ~/Applications/MuseAutoAllow.app
    ```
-4. Grant Accessibility: **System Settings → Privacy & Security → Accessibility**, enable
-   **applet** (that is MuseAutoAllow). Quit and reopen the app afterwards.
-5. Optional: add it to **System Settings → General → Login Items**.
+4. Grant Accessibility when prompted (or from the panel's button), enable
+   **MuseAutoAllow**, then quit and reopen the app.
 
-Quit from the menu-bar item.
+Pause, launch at login and Quit are in the panel.
 
 ## How it works
 
@@ -41,7 +45,7 @@ Only run it while you trust the task you gave it.
 ## Build from source
 
 ```sh
-./build.sh           # builds build/MuseAutoAllow.app and build/MuseAutoAllow.zip
+./build.sh           # universal build/MuseAutoAllow.app + build/MuseAutoAllow.zip (needs Xcode 26 SDK)
 ./build.sh install   # also installs to ~/Applications and launches
 ```
 
