@@ -3,7 +3,7 @@
 #        ./build.sh install    also install to ~/Applications and launch
 set -e
 cd "$(dirname "$0")"
-VERSION=${VERSION:-0.3.1}
+VERSION=${VERSION:-0.3.2}
 APP=build/MuseAutoAllow.app
 rm -rf build/MuseAutoAllow.app build/bin-* build/selftest && mkdir -p "$APP/Contents/MacOS"
 swiftc -swift-version 5 -parse-as-library -D SELFTEST main.swift selftest.swift -o build/selftest
