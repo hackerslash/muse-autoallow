@@ -8,8 +8,8 @@ forms on many different sites (job applications, etc.) keep stopping for approva
 removes that one prompt and leaves every other approval (computer use, connectors, files)
 untouched.
 
-A small `m` glyph sits in the menu bar; its badge shows the state (✓ active, ‖ paused,
-! needs Accessibility, ○ Muse not running). Click it for a Liquid Glass panel with
+The menu-bar mark carries a badge for its state (✓ active, ‖ paused, ! needs
+Accessibility, ○ Muse not running). Click it for a Liquid Glass panel with
 session/all-time counts, the recent uploads it approved (site + file), a pause switch,
 and launch at login.
 
@@ -32,8 +32,10 @@ Pause, launch at login and Quit are in the panel.
 
 ## How it works
 
-Every 2 seconds it reads Muse's windows through the Accessibility API. If a window contains
-text with "to upload this file", it presses the button labelled **Allow once**. No mouse
+Every 2 seconds it reads Muse's windows through the Accessibility API. It presses
+**Allow once** only inside the card that asks to upload a file (the one offering "Always
+allow uploads to this site"); if that card can't be told apart from another pending
+approval, it does nothing. No mouse
 movement, so Muse can stay in the background, as long as its window is open and the chat
 with the prompt is showing.
 
@@ -45,7 +47,7 @@ Only run it while you trust the task you gave it.
 ## Build from source
 
 ```sh
-./build.sh           # universal build/MuseAutoAllow.app + build/MuseAutoAllow.zip (needs Xcode 26 SDK)
+./build.sh           # runs the self-check, then builds universal build/MuseAutoAllow.app + .zip (Xcode 26 SDK)
 ./build.sh install   # also installs to ~/Applications and launches
 ```
 
@@ -53,6 +55,8 @@ Without a signing identity the build is ad-hoc signed, and macOS resets the Acce
 grant on every rebuild. To keep it, create a self-signed code-signing certificate named
 `MuseAutoAllow Local Signing` in your login keychain (Keychain Access → Certificate Assistant →
 Create a Certificate → type *Code Signing*). `build.sh` uses it automatically, or set `IDENTITY=...`.
+
+`icon.swift` regenerates `AppIcon.icns` and `MenuMark.png` from `icon-source.png`.
 
 ## License
 

@@ -84,29 +84,50 @@ private func strings(_ e: AXUIElement) -> [String] {
     [kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute].compactMap { attr(e, $0) as? String }
 }
 
+func parseUpload(_ detail: String) -> (file: String, site: String)? {
+    guard let m = try? Regex(#"upload (.+?) to (\S+?)\.(?:\s|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
+    else { return nil }
+    return (String(m.1), String(m.2))
+}
+
 nonisolated func scanAndAllow(_ pid: pid_t) -> Upload? {
     let app = AXUIElementCreateApplication(pid)
     AXUIElementSetMessagingTimeout(app, 1)
     for window in (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
-        var texts: [String] = []
-        var allow: AXUIElement?
-        var budget = 8000
-        func walk(_ e: AXUIElement, _ depth: Int) {
-            budget -= 1
-            guard budget > 0, depth < 80 else { return }
-            let s = strings(e)
-            texts += s
-            if (attr(e, kAXRoleAttribute) as? String) == kAXButtonRole, s.contains("Allow once") {
-                allow = e
-            }
-            for c in (attr(e, kAXChildrenAttribute) as? [AXUIElement]) ?? [] { walk(c, depth + 1) }
+        // Breadth-first so the approval card is reached before a long chat history eats the budget.
+        var nodes: [(el: AXUIElement, parent: Int, text: [String])] = [(window, -1, strings(window))]
+        var i = 0
+        while i < nodes.count, nodes.count < 8000 {
+            for c in (attr(nodes[i].el, kAXChildrenAttribute) as? [AXUIElement]) ?? [] { nodes.append((c, i, strings(c))) }
+            i += 1
         }
-        walk(window, 0)
-        guard let allow, texts.contains(where: { $0.contains("to upload this file") }) else { continue }
-        guard AXUIElementPerformAction(allow, kAXPressAction as CFString) == .success else { return nil }
-        let detail = texts.first { $0.contains("wants to upload") } ?? ""
-        let m = try? Regex(#"upload (.+?) to (\S+?)\.(?:\s|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
-        return Upload(date: Date(), file: m.map { String($0.1) } ?? "file", site: m.map { String($0.2) } ?? "unknown site")
+        func ancestors(_ n: Int) -> [Int] {
+            var out: [Int] = [], k = n
+            while k >= 0 { out.append(k); k = nodes[k].parent }
+            return out
+        }
+        func subtreeText(_ root: Int) -> [String] {
+            nodes.indices.filter { ancestors($0).contains(root) }.flatMap { nodes[$0].text }
+        }
+        let allows = nodes.indices.filter {
+            nodes[$0].text.contains("Allow once") && (attr(nodes[$0].el, kAXRoleAttribute) as? String) == kAXButtonRole
+        }
+        let titles = nodes.indices.filter { nodes[$0].text.contains { $0.contains("to upload this file") } }
+        for t in titles {
+            let up = ancestors(t)
+            for a in allows {
+                // The card is the smallest container holding both the upload title and this button.
+                let mine = Set(ancestors(a))
+                guard let card = up.first(where: mine.contains) else { continue }
+                // Another Allow once inside it could belong to a different request: don't guess.
+                guard allows.filter({ ancestors($0).contains(card) }).count == 1 else { continue }
+                let text = subtreeText(card)
+                guard text.contains(where: { $0.contains("uploads to this site") }) else { continue }
+                guard AXUIElementPerformAction(nodes[a].el, kAXPressAction as CFString) == .success else { return nil }
+                let parsed = text.lazy.filter { $0.contains("wants to upload") }.compactMap(parseUpload).first
+                return Upload(date: Date(), file: parsed?.file ?? "file", site: parsed?.site ?? "unknown site")
+            }
+        }
     }
     return nil
 }
@@ -263,6 +284,7 @@ struct Panel: View {
     }
 }
 
+#if !SELFTEST
 @main struct MuseAutoAllowApp: App {
     @StateObject private var m = Model()
 
@@ -275,3 +297,4 @@ struct Panel: View {
         .menuBarExtraStyle(.window)
     }
 }
+#endif

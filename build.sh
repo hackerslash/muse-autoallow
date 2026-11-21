@@ -5,7 +5,9 @@ set -e
 cd "$(dirname "$0")"
 VERSION=${VERSION:-0.2.0}
 APP=build/MuseAutoAllow.app
-rm -rf build/MuseAutoAllow.app build/bin-* && mkdir -p "$APP/Contents/MacOS"
+rm -rf build/MuseAutoAllow.app build/bin-* build/selftest && mkdir -p "$APP/Contents/MacOS"
+swiftc -swift-version 5 -parse-as-library -D SELFTEST main.swift selftest.swift -o build/selftest
+build/selftest
 for arch in arm64 x86_64; do
   swiftc -O -swift-version 5 -parse-as-library -target $arch-apple-macos26 main.swift -o build/bin-$arch
 done
