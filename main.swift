@@ -95,10 +95,9 @@ nonisolated func scanAndAllow(_ pid: pid_t) -> Upload? {
             budget -= 1
             guard budget > 0, depth < 80 else { return }
             let s = strings(e)
+            texts += s
             if (attr(e, kAXRoleAttribute) as? String) == kAXButtonRole, s.contains("Allow once") {
                 allow = e
-            } else {
-                texts += s
             }
             for c in (attr(e, kAXChildrenAttribute) as? [AXUIElement]) ?? [] { walk(c, depth + 1) }
         }
