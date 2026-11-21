@@ -10,7 +10,7 @@ for arch in arm64 x86_64; do
   swiftc -O -swift-version 5 -parse-as-library -target $arch-apple-macos26 main.swift -o build/bin-$arch
 done
 lipo -create build/bin-* -output "$APP/Contents/MacOS/MuseAutoAllow"
-mkdir -p "$APP/Contents/Resources" && cp AppIcon.icns "$APP/Contents/Resources/"
+mkdir -p "$APP/Contents/Resources" && cp AppIcon.icns MenuMark.png "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

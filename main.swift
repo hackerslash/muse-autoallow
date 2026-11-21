@@ -113,22 +113,18 @@ nonisolated func scanAndAllow(_ pid: pid_t) -> Upload? {
 
 // MARK: Icon
 
-func menuIcon(_ status: Status) -> NSImage {
-    let img = NSImage(size: NSSize(width: 22, height: 16), flipped: false) { _ in
-        let ctx = NSGraphicsContext.current!
-        NSColor.black.set()
-        let m = NSBezierPath()
-        m.lineWidth = 3.4
-        m.lineCapStyle = .round
-        for (a, b) in [((2.2, 8.2), (5.6, 13.6)), ((3.4, 2.4), (9.6, 12.8)), ((8.6, 2.4), (13.6, 11.2))] {
-            m.move(to: NSPoint(x: a.0, y: a.1)); m.line(to: NSPoint(x: b.0, y: b.1))
-        }
-        m.stroke()
+let menuMark = Bundle.main.image(forResource: "MenuMark")
 
-        let c = NSPoint(x: 17.2, y: 5.6), r = 4.6
+func menuIcon(_ status: Status) -> NSImage {
+    let img = NSImage(size: NSSize(width: 25, height: 16), flipped: false) { _ in
+        let ctx = NSGraphicsContext.current!
+        menuMark?.draw(in: NSRect(x: 0, y: 0, width: 22, height: 16))
+
+        let c = NSPoint(x: 20.2, y: 5.2), r = 4.6, gap = 2.4
         ctx.compositingOperation = .clear
-        NSBezierPath(ovalIn: NSRect(x: c.x - r - 1.2, y: c.y - r - 1.2, width: 2 * r + 2.4, height: 2 * r + 2.4)).fill()
+        NSBezierPath(ovalIn: NSRect(x: c.x - r - gap, y: c.y - r - gap, width: 2 * (r + gap), height: 2 * (r + gap))).fill()
         ctx.compositingOperation = .sourceOver
+        NSColor.black.set()
         let disc = NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
         if status == .museOff {
             disc.lineWidth = 1.4; disc.stroke(); return true
