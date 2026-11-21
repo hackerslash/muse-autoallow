@@ -49,7 +49,10 @@ Only run it while you trust the task you gave it.
 ./build.sh install   # also installs to ~/Applications and launches
 ```
 
-Rebuilding changes the ad-hoc signature, so re-toggle Accessibility after each build.
+Without a signing identity the build is ad-hoc signed, and macOS resets the Accessibility
+grant on every rebuild. To keep it, create a self-signed code-signing certificate named
+`MuseAutoAllow Local Signing` in your login keychain (Keychain Access → Certificate Assistant →
+Create a Certificate → type *Code Signing*). `build.sh` uses it automatically, or set `IDENTITY=...`.
 
 ## License
 

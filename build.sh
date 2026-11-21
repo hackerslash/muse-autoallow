@@ -24,7 +24,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
 </dict></plist>
 PLIST
-codesign -f -s - "$APP"
+# A stable identity keeps the Accessibility grant across rebuilds; ad-hoc (-) resets it every build.
+IDENTITY=${IDENTITY:-$(security find-identity -p codesigning | grep -q "MuseAutoAllow Local Signing" && echo "MuseAutoAllow Local Signing" || echo -)}
+codesign -f -s "$IDENTITY" "$APP"
 ditto -c -k --keepParent "$APP" build/MuseAutoAllow.zip
 echo "built $APP and build/MuseAutoAllow.zip"
 
