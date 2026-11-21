@@ -1,63 +1,38 @@
-# MuseAutoAllow
+<p align="center"><img src="logo.png" width="128" alt="MuseAutoAllow"></p>
 
-A tiny macOS menu-bar app that automatically clicks **Allow once** when the Muse app asks
-*"Allow … to upload this file using Browser?"*.
+<h1 align="center">MuseAutoAllow</h1>
 
-Muse only lets you save upload approval per site, so long-running automations that fill
-forms on many different sites (job applications, etc.) keep stopping for approval. This
-removes that one prompt and leaves every other approval (computer use, connectors, files)
-untouched.
+<p align="center">Menu-bar app for macOS that auto-approves Muse's <b>"Allow … to upload this file?"</b> prompts, so browser automations don't stall on every new site.</p>
 
-The menu-bar mark carries a badge for its state (✓ active, ‖ paused, ! needs
-Accessibility, ○ Muse not running). Click it for a Liquid Glass panel with
-session/all-time counts, the recent uploads it approved (site + file), a pause switch,
-and launch at login.
+<p align="center">
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/hackerslash/muse-autoallow" alt="release"></a>
+  <img src="https://img.shields.io/badge/macOS-26%2B-black" alt="macOS 26+">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
+</p>
 
-Requires macOS 26 or later.
-
-> Not affiliated with or endorsed by Meta or the Muse app.
+- Presses **Allow once** only on upload prompts. Every other approval still asks you.
+- Status badge in the menu bar: ✓ active, ‖ paused, ! needs Accessibility, ○ Muse not running.
+- Liquid Glass panel with session and all-time counts, recent uploads, pause and launch at login.
+- Works with Muse in the background (no mouse movement).
 
 ## Install
 
-1. Download `MuseAutoAllow.zip` from [Releases](../../releases/latest) and unzip it.
-2. Move `MuseAutoAllow.app` to `~/Applications` (or `/Applications`).
-3. The app is not notarized. On first launch, right-click → **Open** → **Open**, or run:
-   ```sh
-   xattr -dr com.apple.quarantine ~/Applications/MuseAutoAllow.app
-   ```
-4. Grant Accessibility when prompted (or from the panel's button), enable
-   **MuseAutoAllow**, then quit and reopen the app.
+1. Download `MuseAutoAllow.zip` from [Releases](../../releases/latest), unzip, move to Applications.
+2. It isn't notarized: right-click → **Open**, or `xattr -dr com.apple.quarantine /path/to/MuseAutoAllow.app`.
+3. Allow **MuseAutoAllow** in System Settings → Privacy & Security → Accessibility.
 
-Pause, launch at login and Quit are in the panel.
+> [!WARNING]
+> While it runs, the Muse agent can upload files to any site without asking. Pause it when you're not watching a task you trust.
 
-## How it works
-
-Every 2 seconds it reads Muse's windows through the Accessibility API. It presses
-**Allow once** only inside the card that asks to upload a file (the one offering "Always
-allow uploads to this site"); if that card can't be told apart from another pending
-approval, it does nothing. No mouse
-movement, so Muse can stay in the background, as long as its window is open and the chat
-with the prompt is showing.
-
-## Security note
-
-With this running, the Muse agent can upload files to **any** site without asking you.
-Only run it while you trust the task you gave it.
-
-## Build from source
+## Build
 
 ```sh
-./build.sh           # runs the self-check, then builds universal build/MuseAutoAllow.app + .zip (Xcode 26 SDK)
+./build.sh           # self-check + universal .app and .zip in build/
 ./build.sh install   # also installs to ~/Applications and launches
 ```
 
-Without a signing identity the build is ad-hoc signed, and macOS resets the Accessibility
-grant on every rebuild. To keep it, create a self-signed code-signing certificate named
-`MuseAutoAllow Local Signing` in your login keychain (Keychain Access → Certificate Assistant →
-Create a Certificate → type *Code Signing*). `build.sh` uses it automatically, or set `IDENTITY=...`.
+Ad-hoc builds lose the Accessibility grant on every rebuild. Create a code-signing certificate named `MuseAutoAllow Local Signing` (Keychain Access → Certificate Assistant) and trust it for code signing to keep it. `build.sh` picks it up automatically.
 
-`icon.swift` regenerates `AppIcon.icns` and `MenuMark.png` from `icon-source.png`.
+---
 
-## License
-
-MIT
+MIT · Not affiliated with Meta or Muse.
