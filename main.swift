@@ -165,7 +165,7 @@ struct Panel: View {
                     Spacer()
                     pill
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 12)
 
                 HStack(spacing: 10) {
                     stat("This session", m.session)
@@ -207,12 +207,10 @@ struct Panel: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .glassEffect(.regular, in: .rect(cornerRadius: 14))
 
-                VStack(spacing: 8) {
-                    Toggle("Pause auto-allow", isOn: $m.paused)
-                    Toggle("Launch at login", isOn: Binding(get: { m.launchAtLogin }, set: { m.setLaunchAtLogin($0) }))
+                VStack(spacing: 10) {
+                    row("Pause auto-allow", $m.paused)
+                    row("Launch at login", Binding(get: { m.launchAtLogin }, set: { m.setLaunchAtLogin($0) }))
                 }
-                .toggleStyle(.switch)
-                .controlSize(.small)
                 .padding(12)
                 .glassEffect(.regular, in: .rect(cornerRadius: 14))
 
@@ -221,7 +219,7 @@ struct Panel: View {
                     Spacer()
                     Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.glass).controlSize(.small)
                 }
-                .padding(.horizontal, 4)
+                .padding(.leading, 12)
             }
             .padding(12)
         }
@@ -241,6 +239,14 @@ struct Panel: View {
         }
         .padding(.horizontal, 9).padding(.vertical, 4)
         .glassEffect(.regular.tint(color.opacity(0.2)), in: .capsule)
+    }
+
+    private func row(_ label: String, _ on: Binding<Bool>) -> some View {
+        HStack {
+            Text(label).font(.callout)
+            Spacer()
+            Toggle(label, isOn: on).labelsHidden().toggleStyle(.switch).controlSize(.small)
+        }
     }
 
     private func stat(_ label: String, _ n: Int) -> some View {
