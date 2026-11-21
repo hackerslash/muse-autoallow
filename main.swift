@@ -105,7 +105,7 @@ private func strings(_ e: AXUIElement) -> [String] {
 }
 
 func parseUpload(_ detail: String) -> (file: String, site: String)? {
-    guard let m = try? Regex(#"upload (.+?\.\w+|a file) to (.+?)(?:\. This task|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
+    guard let m = try? Regex(#"upload (a file|.+?\.\w+) to (.+?)(?:\. This task|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
     else { return nil }
     let rest = String(m.2)
     if let d = try? Regex(#"([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})\b"#, as: (Substring, Substring).self).firstMatch(in: rest) {
@@ -155,7 +155,7 @@ nonisolated func scanAndAllow(_ pid: pid_t, _ kinds: [PromptKind]) -> Upload? {
             let buttons = nodes.indices.filter {
                 nodes[$0].text.contains(kind.button) && (attr(nodes[$0].el, kAXRoleAttribute) as? String) == kAXButtonRole
             }
-            let titles = nodes.indices.filter { nodes[$0].text.contains { $0.contains(kind.title) } }
+            let titles = nodes.indices.filter { nodes[$0].text.contains { $0.hasPrefix("Allow ") && $0.contains(kind.title) } }
             for t in titles {
                 let up = ancestors(t)
                 for a in buttons {
