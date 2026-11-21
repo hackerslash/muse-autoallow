@@ -279,7 +279,7 @@ struct Panel: View {
                 .glassEffect(.regular, in: .rect(cornerRadius: 14))
 
                 HStack {
-                    Text(m.allowSensitive ? "Uploads and sensitive sites." : "Only upload prompts are approved.").font(.caption2).foregroundStyle(.tertiary)
+                    Text("v" + (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")).font(.caption2).foregroundStyle(.tertiary)
                     Spacer()
                     Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.glass).controlSize(.small)
                 }
