@@ -11,6 +11,8 @@
 </p>
 
 - Presses **Allow once** only on upload prompts. Every other approval still asks you.
+- Optional switch to also approve Muse's "access this sensitive site" prompts (off by default).
+- Works with any agent name; needs Muse's UI in English.
 - Status badge in the menu bar: ✓ active, ‖ paused, ! needs Accessibility, ○ Muse not running.
 - Liquid Glass panel with session and all-time counts, recent uploads, pause and launch at login.
 - Works with Muse in the background (no mouse movement).

@@ -105,7 +105,7 @@ private func strings(_ e: AXUIElement) -> [String] {
 }
 
 func parseUpload(_ detail: String) -> (file: String, site: String)? {
-    guard let m = try? Regex(#"upload (.+?) to (\S+?)\.(?:\s|$)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
+    guard let m = try? Regex(#"upload (.+?) to ([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)"#, as: (Substring, Substring, Substring).self).firstMatch(in: detail)
     else { return nil }
     return (String(m.1), String(m.2))
 }
