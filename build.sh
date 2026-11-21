@@ -5,15 +5,17 @@ set -e
 cd "$(dirname "$0")"
 VERSION=${VERSION:-0.2.0}
 APP=build/MuseAutoAllow.app
-rm -rf build && mkdir -p "$APP/Contents/MacOS"
+rm -rf build/MuseAutoAllow.app build/bin-* && mkdir -p "$APP/Contents/MacOS"
 for arch in arm64 x86_64; do
   swiftc -O -swift-version 5 -parse-as-library -target $arch-apple-macos26 main.swift -o build/bin-$arch
 done
 lipo -create build/bin-* -output "$APP/Contents/MacOS/MuseAutoAllow"
+mkdir -p "$APP/Contents/Resources" && cp AppIcon.icns "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleExecutable</key><string>MuseAutoAllow</string>
   <key>CFBundleIdentifier</key><string>io.github.hackerslash.muse-autoallow</string>
   <key>CFBundleName</key><string>MuseAutoAllow</string>
