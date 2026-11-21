@@ -114,37 +114,44 @@ nonisolated func scanAndAllow(_ pid: pid_t) -> Upload? {
 // MARK: Icon
 
 func menuIcon(_ status: Status) -> NSImage {
-    let img = NSImage(size: NSSize(width: 20, height: 16), flipped: false) { _ in
+    let img = NSImage(size: NSSize(width: 22, height: 16), flipped: false) { _ in
+        let ctx = NSGraphicsContext.current!
+        NSColor.black.set()
         let m = NSBezierPath()
-        m.lineWidth = 1.9
+        m.lineWidth = 3.4
         m.lineCapStyle = .round
-        m.lineJoinStyle = .round
-        m.move(to: NSPoint(x: 2, y: 2.5))
-        m.line(to: NSPoint(x: 2, y: 8.5))
-        m.curve(to: NSPoint(x: 6.75, y: 8.5), controlPoint1: NSPoint(x: 2, y: 13), controlPoint2: NSPoint(x: 6.75, y: 13))
-        m.line(to: NSPoint(x: 6.75, y: 2.5))
-        m.move(to: NSPoint(x: 6.75, y: 8.5))
-        m.curve(to: NSPoint(x: 11.5, y: 8.5), controlPoint1: NSPoint(x: 6.75, y: 13), controlPoint2: NSPoint(x: 11.5, y: 13))
-        m.line(to: NSPoint(x: 11.5, y: 2.5))
+        for (a, b) in [((2.2, 8.2), (5.6, 13.6)), ((3.4, 2.4), (9.6, 12.8)), ((8.6, 2.4), (13.6, 11.2))] {
+            m.move(to: NSPoint(x: a.0, y: a.1)); m.line(to: NSPoint(x: b.0, y: b.1))
+        }
         m.stroke()
 
-        let b = NSBezierPath()
-        b.lineWidth = 1.7
-        b.lineCapStyle = .round
-        b.lineJoinStyle = .round
+        let c = NSPoint(x: 17.2, y: 5.6), r = 4.6
+        ctx.compositingOperation = .clear
+        NSBezierPath(ovalIn: NSRect(x: c.x - r - 1.2, y: c.y - r - 1.2, width: 2 * r + 2.4, height: 2 * r + 2.4)).fill()
+        ctx.compositingOperation = .sourceOver
+        let disc = NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+        if status == .museOff {
+            disc.lineWidth = 1.4; disc.stroke(); return true
+        }
+        disc.fill()
+        ctx.compositingOperation = .clear
+        let g = NSBezierPath()
+        g.lineWidth = 1.5
+        g.lineCapStyle = .round
+        g.lineJoinStyle = .round
         switch status {
         case .active:
-            b.move(to: NSPoint(x: 13.5, y: 5.5)); b.line(to: NSPoint(x: 15.3, y: 3.5)); b.line(to: NSPoint(x: 18.5, y: 8))
+            g.move(to: NSPoint(x: c.x - 2.2, y: c.y)); g.line(to: NSPoint(x: c.x - 0.6, y: c.y - 1.6)); g.line(to: NSPoint(x: c.x + 2.2, y: c.y + 1.7))
         case .paused:
-            b.move(to: NSPoint(x: 14.5, y: 3)); b.line(to: NSPoint(x: 14.5, y: 8))
-            b.move(to: NSPoint(x: 17.5, y: 3)); b.line(to: NSPoint(x: 17.5, y: 8))
+            g.move(to: NSPoint(x: c.x - 1.2, y: c.y - 2)); g.line(to: NSPoint(x: c.x - 1.2, y: c.y + 2))
+            g.move(to: NSPoint(x: c.x + 1.2, y: c.y - 2)); g.line(to: NSPoint(x: c.x + 1.2, y: c.y + 2))
         case .noAccess:
-            b.move(to: NSPoint(x: 16, y: 6)); b.line(to: NSPoint(x: 16, y: 11))
-            NSBezierPath(ovalIn: NSRect(x: 15.1, y: 2, width: 1.8, height: 1.8)).fill()
-        case .museOff:
-            NSBezierPath(ovalIn: NSRect(x: 14.5, y: 3, width: 3.5, height: 3.5)).stroke()
+            g.move(to: NSPoint(x: c.x, y: c.y + 2.3)); g.line(to: NSPoint(x: c.x, y: c.y - 0.3))
+            g.move(to: NSPoint(x: c.x, y: c.y - 2.2)); g.line(to: NSPoint(x: c.x, y: c.y - 2.15))
+        case .museOff: break
         }
-        b.stroke()
+        g.stroke()
+        ctx.compositingOperation = .sourceOver
         return true
     }
     img.isTemplate = true
